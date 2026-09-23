@@ -6,8 +6,8 @@ textures, gamephysics, gamecharacter, navigation, audio, gpu) and ML/numerics
 (rl, floatingpoint, rng, efficiency papers, gguf, parsers, unicode). Each pick
 satisfies the power-lane rules. The leaf is pure arithmetic on data that is a
 function of its index. The join is a small associative Data summary. There is
-an independent oracle. The core claims were checked in CPython by the agents;
-none is built yet.
+an independent oracle. The core claims were checked in CPython by the agents.
+#1 and #4 are now built (bend `3759f41`, `lanes/monoids.md` round 2).
 
 ## Ranked
 
