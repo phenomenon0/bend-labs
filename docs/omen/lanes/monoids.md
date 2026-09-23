@@ -86,4 +86,4 @@ Commit: `0c67c15` (bend fork, `claude/bend-primitives-deep-dive-b9g079`).
    oracle together, before any number was recorded.
 6. **No U32↔U64 conversion exists on omen**, so `pcg.bend` does its 64-bit arithmetic on U32
    pairs (a `mulhi` from four 16-bit products). That makes it run on upstream Bend as-is,
-   and it runs at 1.9x the sequential C twin on one thread.
+   and it runs at 2.1x the sequential C twin on one thread (and beats it on four).
