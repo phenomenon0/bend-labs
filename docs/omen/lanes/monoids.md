@@ -87,3 +87,38 @@ Commit: `0c67c15` (bend fork, `claude/bend-primitives-deep-dive-b9g079`).
 6. **No U32↔U64 conversion exists on omen**, so `pcg.bend` does its 64-bit arithmetic on U32
    pairs (a `mulhi` from four 16-bit products). That makes it run on upstream Bend as-is,
    and it runs at 2.1x the sequential C twin on one thread (and beats it on four).
+
+## Round 2 — lostupdate and probe (bend `3759f41`)
+
+These are the top two picks from `plans/monoids-next.md`. `run.sh` passes **25/25**
+(5 programs x 5 lanes), and `gates/repo.ts` passes 56/56.
+
+| run | 1 thread | 2 | 4 | speedup | output |
+|---|---:|---:|---:|---:|---|
+| `lostupdate_big`, all 601,080,390 schedules (n = 8) | 32.88 s | 16.66 s | 8.14 s | 4.0x | `min=2 x8 correct=12870`, full histogram = DP oracle |
+| `probe_big`, 2^24 slots x loads 50/75/85/95 % | 2.21 s | 1.20 s | 0.64 s | 3.5x | = CPython insertion at 50 % and 85 % |
+
+- **lostupdate refutes the concurrency deep dive's "or all of them".** The final count
+  is never below 2. Exactly 8 schedules reach 2, for every n from 3 to 8, and exactly
+  C(2n, n) schedules are correct. The enumeration is brute force by design: the
+  oracle's DP answers n = 8 in 45 ms. What Bend shows is a 601M-way search whose
+  histogram no split can change.
+- **probe: a real hash on a real table does not match Knuth.**
+  - At 2^24 slots, every load comes out below the uniform-hashing means. At 95 % load,
+    the miss cost is 178.47 against Knuth's 200.50, and the hit cost 9.69 against 10.50.
+  - At 2^16 slots and 85 % it is above them (hit 4.14 against 3.83). With sequential
+    keys through a two-multiply mixer, finite-size and hash-structure effects go both
+    ways.
+  - The (max,+) carry map and the ring's fixed point (Q = n − M < 0, so the inflow is
+    P) are the whole trick. Pass 2 reuses pass 1's tree of maps as its fork tree.
+- **Limits:**
+  - probe's sums are U32. At 2^24 slots and 95 % load, the miss total is 2.98e9, so
+    loads past about 96 % need a wider counter.
+  - lostupdate's schedule word is 32 bits, which caps it at n = 8.
+- **Bend notes:**
+  - `1n++q` is a pattern, not an expression. Use `U32.inc(U32.from_nat(q))`.
+  - A parallel-let's results are affine. To reuse them, pass them to a def with `+`
+    parameters (`node(+l, +r)`).
+  - A second `match` on another parameter inside a case is refused, because
+    scrutinees go in binder order. So `walk` matches only the tree, and the tree's
+    shape is the split.
