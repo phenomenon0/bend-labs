@@ -122,3 +122,37 @@ These are the top two picks from `plans/monoids-next.md`. `run.sh` passes **25/2
   - A second `match` on another parameter inside a case is refused, because
     scrutinees go in binder order. So `walk` matches only the tree, and the tree's
     shape is the split.
+
+## Round 3 — promoted to power/, on real buffers (bend `b9ceb7e`)
+
+The two programs with practical value became library primitives: `power/exact.bend`
+(`Ex.sum`, `add`, `join`, `round`) and `power/utf8.bend` (`U.check`, `U.first_bad`).
+They take a real Vec or Bytes, not synthesized data. The unlock is upstream 2.0.22's
+`Array.fork`, which gives two handles to one block in O(1). That retires power-1's "an
+Array pays a full copy per fork level" for read-only leaves. Each leaf threads the array
+the way `Array.map.go` does (the previous read's pair is a parameter), so the limbs and
+the DFA state stay in registers.
+
+**Tests.** `tests/power/exact.bend` and `tests/power/utf8.bend` both pass 6/6 (oracle,
+check, interpret, js, c, c-1thread). Every fork depth prints the same line.
+
+**Power suite.** 161/162. The failure is `assign [oracle]`, which needs numpy; it fails
+the same without this change.
+
+**Runner change.** `tests/power/run.sh`'s interpret lane now drops the checker's
+stderr note "All terms check, but N defs rely on unsafe or foreign code", because
+`Array.fork` is `@unsafe` in Base. No `power/` file writes `@unsafe` itself, so the
+runner's `@unsafe` grep still guards the library.
+
+**Real data** (`demos/monoids/real.sh`, same 4-vCPU box):
+
+| input | 1 thread | 4 threads | baseline | verdict |
+|---|---:|---:|---|---|
+| deep dives' HTML x 8, 55.5 MB | 249 ms | 67–82 ms | CPython decode 145 ms | = CPython |
+| same with one 0xFF | 260 + 239 ms | 67 + 76 ms | | first bad byte 39,644,194 = CPython |
+| 2^24 float32s | 196 ms | 49 ms | naive C f32 loop ~22 ms | exact −1.3746 = Python integer sum; naive f32 **and** f64: +0.0053 |
+
+**Next bottleneck: file intake.** `File.read_bytes` returns 64 KiB as a List of U32,
+which is then packed into cells. That takes about 0.5 s for 55 MB, 2–6x the validation
+itself. A `File.read` into an Array (or a Bytes-returning effect) is the change that
+would make these primitives win end to end.
