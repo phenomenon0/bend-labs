@@ -220,3 +220,41 @@ The net API was enough as it stands: `Server.serve.with`, the router, `Client.se
 - `Bool.pick` evaluates both arms, so dispatch on a job kind has to be a `match`.
 
 The repo gate adds no red of its own: 75/85, and the ten reds are the net line's sizes.
+
+## Round 5 — a priced job on preemptible machines, judged (bend `55547c1`)
+
+The question: does bend-mesh have economic value, say for running Monte Carlo pricing on
+spot machines? `demos/mesh/option.bend` prices a European call by Monte Carlo. Paths come
+from Threefry keyed by (seed, i), and draws from the polar method. exp and log are built
+from IEEE basic ops, not libm. Sums are 96-bit fixed point, so the join is integer
+addition. Two independent twins do the same ops in the same order: `option_ref.py`
+(CPython) and `option_twin.c` (`-ffp-contract=off`). `spot.sh` runs the mesh under a
+chaos loop that SIGKILLs a random worker every 1-3 s and restarts it 1-4 s later. The
+coordinator gained re-admission: a failed post costs a strike, with 250 ms backoff and
+retirement after 40 in a row.
+
+Results, 2e7 paths:
+
+- All runs print the twin's bits: one process, 2×50, 4×200, and chaos (5 kills,
+  45 re-admitted posts, 21.8 s vs 18.6 s clean).
+- The bits also match across Python, the C twin at 1/3/4 threads, and Bend's JS lane.
+- The estimator is unbiased: over 10 seeds, rms z is 0.97 against Black-Scholes. At 4e8
+  paths it gives 8.021388 ± 0.00066 against 8.0213522.
+
+The fair verdict:
+
+- **Speed.** One core does 0.28 M paths/s in Bend, 4.3 M in the C twin, and 10.3 M in C
+  with libm and double sums. Bend is 15× the twin. Even at a 90% spot discount, Bend
+  on spot costs 1.5× the twin on demand.
+- **Where the value lies.** Bit-identity comes from the design (pure leaves, integer
+  monoid, own exp/log) and transfers to C at a 2.4× cost. Bend's contribution is
+  that its checker makes leaf purity the default. Its runtime speed is the blocker.
+- **What drifts.** Plain C drifts at 1e-14 relative with thread count. That is irrelevant
+  to price and matters only to byte-level audits, result caches and hedge checks.
+- **FMA contraction.** It flips the twin's last bit. clang contracts by default, so
+  `bend2/main.ts` now builds C with `-ffp-contract=off`. f64 lane: 21/22, and the one
+  red is the gpu lane on a box without a GPU.
+- **Caveat.** The "machines" were processes on one 4-vCPU box.
+
+Next, if pursued: Bend's per-path cost in the C lane (a 15× gap on scalar F64 code is
+the runtime's to close), and a health probe before re-admission.
