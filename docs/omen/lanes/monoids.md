@@ -156,3 +156,26 @@ runner's `@unsafe` grep still guards the library.
 which is then packed into cells. That takes about 0.5 s for 55 MB, 2–6x the validation
 itself. A `File.read` into an Array (or a Bytes-returning effect) is the change that
 would make these primitives win end to end.
+
+## Consolidation (2026-09-24, bend `78d9120` + `ec59bbe`)
+
+Two sessions synced upstream 2.0.26 in parallel, omen (`d6fa342`) and this branch
+(`d6792ca`), which was wasted work. This branch now merges omen and keeps omen's
+resolution byte for byte, so it equals omen plus only this lane's files (32 files, all
+Zone B except the fix below). Everything was re-verified on omen's compiler:
+
+- repo gate 56/56
+- monoids 25/25
+- power exact and utf8 6/6 each
+- real.sh 6/6
+- f64 21/22 (gpu)
+- strings 100/102 (gpu, deep interpret timeout; both unchanged)
+
+The one thing the diff between the two syncs turned up is a regression. On omen's
+resolution, an F64 literal match (`case 1.5d:`) crashed the C compiler (`lay.arms.find`),
+because the new w64 path covered U64 and I64 only. `ec59bbe` adds F64 to that path,
+with a regression test (`12939` on all lanes, including -0.0 falling to the default).
+That strengthens `plans/upstream-offer.md`'s first candidate, the 64-bit words.
+
+**Rule going forward:** one sync per upstream release, on `omen`, claimed before it
+starts.

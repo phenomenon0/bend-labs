@@ -1,3 +1,10 @@
+> **Superseded (2026-09-24).** omen merged 2.0.26 on its own the same day (`d6fa342`,
+> reported in the bend repo at `docs/omen/lanes/upstream-2.0.26.md`), and that sync is
+> canonical. The consolidation merge `78d9120` takes omen's `comp.ts`, caps and gate
+> wholesale. From this sync, one thing survived. Diffing the two resolutions showed that
+> omen's does not compile an F64 literal match on the C lane. That is fixed on top of omen
+> in `ec59bbe`, with `tests/f64/match_literal.bend`. The rest of this page is history.
+
 # Sync 2.0.26 — upstream's 63 commits onto the omen line (2026-09-23)
 
 One merge, no lanes. `up/main` = `6a77e12` ("The flake names 2.0.26") merged onto `omen` = `81f12fc`,
