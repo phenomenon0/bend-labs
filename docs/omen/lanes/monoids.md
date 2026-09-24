@@ -179,3 +179,11 @@ That strengthens `plans/upstream-offer.md`'s first candidate, the 64-bit words.
 
 **Rule going forward:** one sync per upstream release, on `omen`, claimed before it
 starts.
+
+**2026-09-24, operator-approved:** `omen` was fast-forwarded to `1e919d1`. That commit is
+this branch merged with omen's newer `f8e7628` (the translator fuzzer). The two touch
+disjoint files, and after the merge the gate, monoids, power and f64 checks were re-run
+green. Superseded branches are archived as `archive/{fix-epoll-scheduler,
+fix-listen-backlog,fix-socket-bytes,f64-pr,u64-i64-native,pr-strings,pr-regex,
+regex-upstream}`, each verified to equal the original tip. The session's git proxy
+refuses ref deletion (403), so deleting the originals is left to the operator.
