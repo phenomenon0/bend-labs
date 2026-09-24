@@ -187,3 +187,36 @@ green. Superseded branches are archived as `archive/{fix-epoll-scheduler,
 fix-listen-backlog,fix-socket-bytes,f64-pr,u64-i64-native,pr-strings,pr-regex,
 regex-upstream}`, each verified to equal the original tip. The session's git proxy
 refuses ref deletion (403), so deleting the originals is left to the operator.
+
+## Round 4 — bend-mesh: the leaves become machines (bend `b4a7a53`)
+
+`demos/mesh` puts the monoid thesis on the network. A `worker.bend` (a net server) answers
+`POST /leaf "job a lo n d"` with a leaf's summary as words. `mesh.bend` splits a job into
+chunks and runs one pulling loop per worker, each with a pooled `Client.Session`, over a
+board kept in a channel of one. It joins the answers in chunk order with the job's own
+monoid. Because every leaf is a pure function of its range and every join is associative:
+
+- **retry** is free: a failed worker's chunk goes back to the queue;
+- **hedging** is safe: idle workers re-run chunks that are out but not back, and the first
+  copy wins;
+- the worker that completes the board prints the answer and `IO.die(0)`s, so stragglers
+  are abandoned.
+
+`mesh.sh` ran four one-thread workers on this box, standing in for four machines. All
+eight runs equal the pinned oracles:
+
+| run | lost 8 (601M schedules) | exact 7 (2^26 floats) |
+|---|---:|---:|
+| one process, 1 thread | 37.8 s | 2.81 s |
+| 4 workers | 9.5 s | 0.75 s |
+| worker 0 +4 s per leaf | 12.3 s | 0.96 s (4.06 s before halt-on-complete) |
+| worker 1 killed at 2 s | 12.1 s, 1 retry | 0.77 s |
+
+The net API was enough as it stands: `Server.serve.with`, the router, `Client.session` /
+`Client.fetch`, `IO.spawn`, channels. Friction, for net's owner:
+
+- `IO.args()` has to be called once per flag, the same friction `apps/uptime` records;
+- ending a program that still has live computations takes `IO.die` with code 0;
+- `Bool.pick` evaluates both arms, so dispatch on a job kind has to be a `match`.
+
+The repo gate adds no red of its own: 75/85, and the ten reds are the net line's sizes.
